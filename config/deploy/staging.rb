@@ -8,6 +8,20 @@
 # server "db.example.com", user: "deploy", roles: %w{db}
 
 
+# config/deploy/staging.rb
+
+set :stage, :staging
+set :rails_env, "production"
+
+server "<DEMAND_A1_PRIVATE_IP>",
+  user: "ubuntu",
+  roles: %w[app web db],
+  primary: true
+
+server "<DEMAND_A2_PRIVATE_IP>",
+  user: "ubuntu",
+  roles: %w[app web]
+
 
 # role-based syntax
 # ==================
