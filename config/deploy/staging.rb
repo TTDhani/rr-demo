@@ -13,12 +13,12 @@
 set :stage, :staging
 set :rails_env, "production"
 
-server "<DEMAND_A1_PRIVATE_IP>",
+server "10.20.133.231",
   user: "ubuntu",
   roles: %w[app web db],
   primary: true
 
-server "<DEMAND_A2_PRIVATE_IP>",
+server "10.20.143.220",
   user: "ubuntu",
   roles: %w[app web]
 
