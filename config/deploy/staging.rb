@@ -6,19 +6,6 @@
 # server "example.com", user: "deploy", roles: %w{app db web}, my_property: :my_value
 # server "example.com", user: "deploy", roles: %w{app web}, other_property: :other_value
 # server "db.example.com", user: "deploy", roles: %w{db}
-set :stage, :staging
-set :rails_env, "production"
-
-server "10.20.133.231",
-  user: "ubuntu",
-  roles: %w[app web db],
-  primary: true
-
-server "10.20.143.220",
-  user: "ubuntu",
-  roles: %w[app web]
-
-# config/deploy/staging.rb
 
 set :stage, :staging
 set :rails_env, "production"
@@ -32,6 +19,11 @@ server "10.20.143.220",
   user: "ubuntu",
   roles: %w[app web]
 
+set :ssh_options, {
+  auth_methods: %w[publickey],
+  keys: [File.expand_path("~/.ssh/demand.pem")],
+  forward_agent: false
+}
 
 # role-based syntax
 # ==================
