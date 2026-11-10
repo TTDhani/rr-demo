@@ -1,0 +1,220 @@
+
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #080d1c;
+    color: #f8fafc;
+    font-family: Arial, sans-serif;
+  }
+
+  .site-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 8%;
+    border-bottom: 1px solid #1e293b;
+  }
+
+  .brand {
+    font-size: 25px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -1px;
+  }
+
+  .brand span { color: #38bdf8; }
+
+  .nav-links {
+    display: flex;
+    gap: 28px;
+  }
+
+  .nav-links a {
+    color: #cbd5e1;
+    text-decoration: none;
+    font-size: 14px;
+  }
+
+  .hero {
+    min-height: 570px;
+    padding: 110px 20px 90px;
+    text-align: center;
+    background:
+      radial-gradient(ellipse at 50% 20%,
+      rgba(37,99,235,.25), transparent 60%);
+  }
+
+  .eyebrow {
+    display: inline-block;
+    padding: 9px 16px;
+    border: 1px solid #334155;
+    border-radius: 30px;
+    color: #7dd3fc;
+    font-size: 13px;
+  }
+
+  .hero h1 {
+    max-width: 850px;
+    margin: 30px auto 20px;
+    font-size: clamp(42px, 7vw, 76px);
+    line-height: 1.08;
+    letter-spacing: -3px;
+  }
+
+  .gradient-text {
+    background: linear-gradient(90deg,#38bdf8,#818cf8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .hero p {
+    max-width: 650px;
+    margin: 0 auto;
+    color: #94a3b8;
+    font-size: 17px;
+    line-height: 1.8;
+  }
+
+  .actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 35px;
+  }
+
+  .btn {
+    display: inline-block;
+    padding: 15px 25px;
+    border-radius: 9px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .btn-primary {
+    background: #2563eb;
+    color: white;
+  }
+
+  .btn-secondary {
+    border: 1px solid #475569;
+    color: #e2e8f0;
+  }
+
+  .section {
+    padding: 65px 8%;
+    text-align: center;
+  }
+
+  .section h2 {
+    font-size: 30px;
+    margin-bottom: 12px;
+  }
+
+  .section p {
+    color: #94a3b8;
+    line-height: 1.7;
+  }
+
+  .tech-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 35px;
+  }
+
+  .tech-item {
+    padding: 17px 25px;
+    background: #111b30;
+    border: 1px solid #263650;
+    border-radius: 10px;
+    color: #dbeafe;
+    font-weight: 600;
+  }
+
+  .footer {
+    padding: 28px 15px;
+    text-align: center;
+    border-top: 1px solid #1e293b;
+    color: #64748b;
+    font-size: 13px;
+  }
+
+  @media(max-width: 650px) {
+    .site-header { padding: 20px 5%; }
+    .nav-links { gap: 12px; }
+    .nav-links a { font-size: 12px; }
+    .hero { padding-top: 80px; }
+    .hero h1 { letter-spacing: -1.5px; }
+  }
+</style>
+
+<header class="site-header">
+  <div class="brand">DevSec<span>Pro</span></div>
+
+  <nav class="nav-links">
+    <a href="#">Home</a>
+    <a href="#about">About</a>
+    <a href="#technologies">Technologies</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="eyebrow">CLOUD • DEVOPS • AUTOMATION • SECURITY</div>
+
+    <h1>
+      Build. Deploy.<br>
+      <span class="gradient-text">Secure. Scale.</span>
+    </h1>
+
+    <p>
+      Welcome to DevSecPro — exploring modern cloud infrastructure,
+      DevOps automation, containerization and secure application
+      deployment.
+    </p>
+
+    <div class="actions">
+      <a href="#technologies" class="btn btn-primary">
+        Explore Technologies →
+      </a>
+
+      <a href="/health" class="btn btn-secondary">
+        Check System Health
+      </a>
+    </div>
+  </section>
+
+  <section class="section" id="about">
+    <h2>Engineering the Future</h2>
+    <p>
+      Building reliable, scalable and secure applications using
+      modern cloud-native technologies and automation practices.
+    </p>
+  </section>
+
+  <section class="section" id="technologies">
+    <h2>Our Technology Stack</h2>
+    <p>Tools and technologies powering modern infrastructure.</p>
+
+    <div class="tech-grid">
+      <div class="tech-item">AWS</div>
+      <div class="tech-item">Docker</div>
+      <div class="tech-item">Kubernetes</div>
+      <div class="tech-item">Terraform</div>
+      <div class="tech-item">Jenkins</div>
+      <div class="tech-item">GitHub Actions</div>
+      <div class="tech-item">Linux</div>
+      <div class="tech-item">Ansible</div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  © <%= Date.current.year %> DevSecPro. Built with Ruby on Rails.
+</footer>
