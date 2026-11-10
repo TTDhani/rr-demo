@@ -18,6 +18,7 @@ set :keep_releases, 5
 
 # Pass environment variables to remote Capistrano commands.
 # Values are supplied by Jenkins Credentials.
+
 set :default_env, {
   "RAILS_ENV" => "production",
   "SECRET_KEY_BASE" => ENV.fetch("SECRET_KEY_BASE"),
@@ -25,7 +26,7 @@ set :default_env, {
   "DB_PORT" => ENV.fetch("DB_PORT", "5432"),
   "DB_NAME" => ENV.fetch("DB_NAME"),
   "DB_USERNAME" => ENV.fetch("DB_USERNAME"),
-  "DB_PASSWORD" => ENV.fetch("DB_PASSWORD")
+  "DB_PASSWORD" => ENV.fetch("DB_PASSWORD"),
   "DB_QUEUE_NAME" => ENV.fetch("DB_QUEUE_NAME"),
   "DB_CACHE_NAME" => ENV.fetch("DB_CACHE_NAME"),
   "DB_CABLE_NAME" => ENV.fetch("DB_CABLE_NAME")
