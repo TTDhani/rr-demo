@@ -1,4 +1,3 @@
-
 pipeline {
     agent any
 
@@ -51,10 +50,12 @@ pipeline {
             steps {
                 sshagent(credentials: ['demand-app-ssh-key']) {
                     withCredentials([
-                        string(
-                            credentialsId: 'rr-demo-secret-key-base',
-                            variable: 'SECRET_KEY_BASE'
-                        )
+                        string(credentialsId: 'rr-demo-secret-key-base', variable: 'SECRET_KEY_BASE'),
+                        string(credentialsId: 'rr-demo-db-host', variable: 'DB_HOST'),
+                        string(credentialsId: 'rr-demo-db-name', variable: 'DB_NAME'),
+                        string(credentialsId: 'rr-demo-db-username', variable: 'DB_USERNAME'),
+                        string(credentialsId: 'rr-demo-db-password', variable: 'DB_PASSWORD'),
+                        string(credentialsId: 'rr-demo-db-port', variable: 'DB_PORT')
                     ]) {
                         sh '''
                             set -eu
@@ -76,10 +77,12 @@ pipeline {
             steps {
                 sshagent(credentials: ['demand-app-ssh-key']) {
                     withCredentials([
-                        string(
-                            credentialsId: 'rr-demo-secret-key-base',
-                            variable: 'SECRET_KEY_BASE'
-                        )
+                        string(credentialsId: 'rr-demo-secret-key-base', variable: 'SECRET_KEY_BASE'),
+                        string(credentialsId: 'rr-demo-db-host', variable: 'DB_HOST'),
+                        string(credentialsId: 'rr-demo-db-name', variable: 'DB_NAME'),
+                        string(credentialsId: 'rr-demo-db-username', variable: 'DB_USERNAME'),
+                        string(credentialsId: 'rr-demo-db-password', variable: 'DB_PASSWORD'),
+                        string(credentialsId: 'rr-demo-db-port', variable: 'DB_PORT')
                     ]) {
                         sh '''
                             set -eu
