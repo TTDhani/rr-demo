@@ -1,3 +1,4 @@
+
 pipeline {
     agent any
 
@@ -55,10 +56,10 @@ pipeline {
                         string(credentialsId: 'rr-demo-db-name', variable: 'DB_NAME'),
                         string(credentialsId: 'rr-demo-db-username', variable: 'DB_USERNAME'),
                         string(credentialsId: 'rr-demo-db-password', variable: 'DB_PASSWORD'),
-                        string(credentialsId: 'rr-demo-db-port', variable: 'DB_PORT')
-			string(credentialsId: 'rr-demo-db-queue-name', variable: 'DB_QUEUE_NAME'),
-			string(credentialsId: 'rr-demo-db-cache-name', variable: 'DB_CACHE_NAME'),
-			string(credentialsId: 'rr-demo-db-cable-name', variable: 'DB_CABLE_NAME')
+                        string(credentialsId: 'rr-demo-db-port', variable: 'DB_PORT'),
+                        string(credentialsId: 'rr-demo-db-queue-name', variable: 'DB_QUEUE_NAME'),
+                        string(credentialsId: 'rr-demo-db-cache-name', variable: 'DB_CACHE_NAME'),
+                        string(credentialsId: 'rr-demo-db-cable-name', variable: 'DB_CABLE_NAME')
                     ]) {
                         sh '''
                             set -eu
@@ -85,10 +86,10 @@ pipeline {
                         string(credentialsId: 'rr-demo-db-name', variable: 'DB_NAME'),
                         string(credentialsId: 'rr-demo-db-username', variable: 'DB_USERNAME'),
                         string(credentialsId: 'rr-demo-db-password', variable: 'DB_PASSWORD'),
-                        string(credentialsId: 'rr-demo-db-port', variable: 'DB_PORT')
-			string(credentialsId: 'rr-demo-db-queue-name', variable: 'DB_QUEUE_NAME'),
-			string(credentialsId: 'rr-demo-db-cache-name', variable: 'DB_CACHE_NAME'),
-			string(credentialsId: 'rr-demo-db-cable-name', variable: 'DB_CABLE_NAME')
+                        string(credentialsId: 'rr-demo-db-port', variable: 'DB_PORT'),
+                        string(credentialsId: 'rr-demo-db-queue-name', variable: 'DB_QUEUE_NAME'),
+                        string(credentialsId: 'rr-demo-db-cache-name', variable: 'DB_CACHE_NAME'),
+                        string(credentialsId: 'rr-demo-db-cable-name', variable: 'DB_CABLE_NAME')
                     ]) {
                         sh '''
                             set -eu
