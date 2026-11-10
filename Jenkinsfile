@@ -9,6 +9,7 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -19,6 +20,7 @@ pipeline {
             steps {
                 sh '''
                     set -eu
+                    echo "Checking Ruby and Bundler versions..."
                     ruby --version
                     bundle --version
                     git rev-parse --short HEAD
@@ -38,14 +40,27 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                sh 'bundle exec rails test'
+                sh '''
+                    set -eu
+                    bundle exec rails test
+                '''
             }
         }
 
         stage('Capistrano Preflight') {
             steps {
                 sshagent(credentials: ['demand-app-ssh-key']) {
-                    sh 'bundle exec cap staging deploy:check'
+                    withCredentials([
+                        string(
+                            credentialsId: 'rr-demo-secret-key-base',
+                            variable: 'SECRET_KEY_BASE'
+                        )
+                    ]) {
+                        sh '''
+                            set -eu
+                            bundle exec cap staging deploy:check
+                        '''
+                    }
                 }
             }
         }
@@ -60,7 +75,17 @@ pipeline {
         stage('Deploy') {
             steps {
                 sshagent(credentials: ['demand-app-ssh-key']) {
-                    sh 'bundle exec cap staging deploy'
+                    withCredentials([
+                        string(
+                            credentialsId: 'rr-demo-secret-key-base',
+                            variable: 'SECRET_KEY_BASE'
+                        )
+                    ]) {
+                        sh '''
+                            set -eu
+                            bundle exec cap staging deploy
+                        '''
+                    }
                 }
             }
         }
@@ -76,6 +101,13 @@ pipeline {
         }
 
         always {
+            echo 'Cleaning Jenkins workspace...'
+            cleanWs(
+                deleteDirs: true,
+                disableDeferredWipeout: true,
+                notFailBuild: true
+            )
+            echo 'Workspace cleanup completed.'
             echo 'Pipeline execution finished.'
         }
     }
