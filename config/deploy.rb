@@ -19,6 +19,9 @@ append :linked_dirs,
   "storage"
 
 set :keep_releases, 5
+set :default_env, {
+  "SECRET_KEY_BASE" => ENV.fetch("SECRET_KEY_BASE")
+}
 # Default branch is :master
 # ask :branch, `git rev-parse --abbrev-ref HEAD`.chomp
 
