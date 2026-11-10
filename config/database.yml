@@ -13,12 +13,22 @@ test:
   database: rr_demo_app_test
 
 production:
-  <<: *default
-  database: <%= ENV["DB_NAME"] %>
-  username: <%= ENV["DB_USERNAME"] %>
-  password: <%= ENV["DB_PASSWORD"].to_s.inspect %>
-  host: <%= ENV["DB_HOST"] %>
-  port: <%= ENV.fetch("DB_PORT", "5432") %>
-  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
-  sslmode: verify-full
-  sslrootcert: /etc/ssl/certs/aws-rds-global-bundle.pem
+  primary: &primary_production
+    <<: *default
+    database: <%= ENV["DB_NAME"] %>
+    username: <%= ENV["DB_USERNAME"] %>
+    password: <%= ENV["DB_PASSWORD"].to_s.inspect %>
+    host: <%= ENV["DB_HOST"] %>
+    port: <%= ENV.fetch("DB_PORT", "5432") %>
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+    sslmode: verify-full
+    sslrootcert: /etc/ssl/certs/aws-rds-global-bundle.pem
+
+  cache:
+    <<: *primary_production
+
+  queue:
+    <<: *primary_production
+
+  cable:
+    <<: *primary_production
