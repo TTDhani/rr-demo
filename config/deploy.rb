@@ -26,4 +26,7 @@ set :default_env, {
   "DB_NAME" => ENV.fetch("DB_NAME"),
   "DB_USERNAME" => ENV.fetch("DB_USERNAME"),
   "DB_PASSWORD" => ENV.fetch("DB_PASSWORD")
+  "DB_QUEUE_NAME" => ENV.fetch("DB_QUEUE_NAME"),
+  "DB_CACHE_NAME" => ENV.fetch("DB_CACHE_NAME"),
+  "DB_CABLE_NAME" => ENV.fetch("DB_CABLE_NAME")
 }

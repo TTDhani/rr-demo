@@ -24,11 +24,14 @@ production:
     sslmode: verify-full
     sslrootcert: /etc/ssl/certs/aws-rds-global-bundle.pem
 
-  cache:
-    <<: *primary_production
-
   queue:
     <<: *primary_production
+    database: <%= ENV["DB_QUEUE_NAME"] %>
+
+  cache:
+    <<: *primary_production
+    database: <%= ENV["DB_CACHE_NAME"] %>
 
   cable:
     <<: *primary_production
+    database: <%= ENV["DB_CABLE_NAME"] %>
