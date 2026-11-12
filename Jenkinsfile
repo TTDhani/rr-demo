@@ -5,7 +5,7 @@ pipeline {
     options {
         timestamps()
         disableConcurrentBuilds()
-        timeout(time: 30, unit: 'MINUTES')
+        timeout(time: 60, unit: 'MINUTES')
     }
 
     stages {
@@ -20,7 +20,9 @@ pipeline {
             steps {
                 sh '''
                     set -eu
+
                     echo "Checking Ruby and Bundler versions..."
+
                     ruby --version
                     bundle --version
                     git rev-parse --short HEAD
@@ -32,6 +34,7 @@ pipeline {
             steps {
                 sh '''
                     set -eu
+
                     bundle config set --local path vendor/bundle
                     bundle install
                 '''
@@ -42,6 +45,7 @@ pipeline {
             steps {
                 sh '''
                     set -eu
+
                     bundle exec rails test
                 '''
             }
@@ -63,6 +67,7 @@ pipeline {
                     ]) {
                         sh '''
                             set -eu
+
                             bundle exec cap staging deploy:check
                         '''
                     }
@@ -72,8 +77,10 @@ pipeline {
 
         stage('Approve Deployment') {
             steps {
-                input message: 'Deploy this revision to both Demand app servers?',
-                      ok: 'Deploy'
+                input(
+                    message: 'Deploy this revision to both Demand app servers?',
+                    ok: 'Deploy'
+                )
             }
         }
 
@@ -93,17 +100,44 @@ pipeline {
                     ]) {
                         sh '''
                             set -eu
+
                             bundle exec cap staging deploy
                         '''
                     }
                 }
             }
         }
+
+        stage('Trigger Infrastructure Pipeline') {
+            steps {
+                echo 'Application deployment completed successfully.'
+                echo 'Triggering downstream infrastructure pipeline...'
+
+                build(
+                    job: 'rr-demo-infra-automation',
+                    parameters: [
+                        string(
+                            name: 'ACTION',
+                            value: 'PREFLIGHT'
+                        ),
+                        booleanParam(
+                            name: 'APPLY',
+                            value: false
+                        )
+                    ],
+                    wait: true,
+                    propagate: true
+                )
+
+                echo 'Infrastructure preflight completed successfully.'
+            }
+        }
     }
 
     post {
+
         success {
-            echo 'Pipeline completed successfully.'
+            echo 'Application and downstream infrastructure preflight completed successfully.'
         }
 
         failure {
@@ -112,11 +146,13 @@ pipeline {
 
         always {
             echo 'Cleaning Jenkins workspace...'
+
             cleanWs(
                 deleteDirs: true,
                 disableDeferredWipeout: true,
                 notFailBuild: true
             )
+
             echo 'Workspace cleanup completed.'
             echo 'Pipeline execution finished.'
         }
