@@ -6,6 +6,7 @@ pipeline {
         timestamps()
         disableConcurrentBuilds()
         timeout(time: 120, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '30'))
     }
 
     stages {
@@ -21,7 +22,9 @@ pipeline {
                 sh '''
                     set -eu
 
-                    echo "Checking Ruby and Bundler versions..."
+                    echo "===================================="
+                    echo "VERIFYING ENVIRONMENT"
+                    echo "===================================="
 
                     ruby --version
                     bundle --version
@@ -35,6 +38,8 @@ pipeline {
                 sh '''
                     set -eu
 
+                    echo "Installing Ruby dependencies..."
+
                     bundle config set --local path vendor/bundle
                     bundle install
                 '''
@@ -45,6 +50,8 @@ pipeline {
             steps {
                 sh '''
                     set -eu
+
+                    echo "Running Rails tests..."
 
                     bundle exec rails test
                 '''
@@ -68,6 +75,8 @@ pipeline {
                         sh '''
                             set -eu
 
+                            echo "Running Capistrano deploy check..."
+
                             bundle exec cap staging deploy:check
                         '''
                     }
@@ -79,14 +88,14 @@ pipeline {
             steps {
                 timeout(time: 30, unit: 'MINUTES') {
                     input(
-                        message: 'Deploy this revision to both Demand application servers?',
-                        ok: 'Deploy'
+                        message: 'Deploy this application revision to both Demand servers?',
+                        ok: 'Approve Deployment'
                     )
                 }
             }
         }
 
-        stage('Deploy') {
+        stage('Deploy Application') {
             steps {
                 sshagent(credentials: ['demand-app-ssh-key']) {
                     withCredentials([
@@ -102,6 +111,8 @@ pipeline {
                     ]) {
                         sh '''
                             set -eu
+
+                            echo "Deploying application to Demand servers..."
 
                             bundle exec cap staging deploy
                         '''
@@ -119,6 +130,7 @@ pipeline {
                         SERVERS="10.20.133.231 10.20.143.220"
 
                         for SERVER in $SERVERS; do
+
                             echo "===================================="
                             echo "Checking application on ${SERVER}"
                             echo "===================================="
@@ -138,9 +150,10 @@ pipeline {
                             }
 
                             echo "Application is healthy on ${SERVER}."
+
                         done
 
-                        echo "Both Demand application servers are healthy."
+                        echo "Both Demand servers are healthy."
                     '''
                 }
             }
@@ -149,20 +162,10 @@ pipeline {
         stage('Trigger Infrastructure Pipeline') {
             steps {
                 echo 'Application deployment and health checks succeeded.'
-                echo 'Triggering the AMI-to-ASG infrastructure rollout.'
+                echo 'Triggering infrastructure automation...'
 
                 build(
                     job: 'rr-demo-infra-automation',
-                    parameters: [
-                        string(
-                            name: 'ACTION',
-                            value: 'FULL_ROLLOUT'
-                        ),
-                        booleanParam(
-                            name: 'APPLY',
-                            value: true
-                        )
-                    ],
                     wait: true,
                     propagate: true
                 )
@@ -173,7 +176,6 @@ pipeline {
     }
 
     post {
-
         success {
             echo 'Application deployment and infrastructure rollout completed successfully.'
         }
@@ -183,7 +185,7 @@ pipeline {
         }
 
         always {
-            echo 'Cleaning Jenkins workspace...'
+            echo 'Cleaning application workspace...'
 
             cleanWs(
                 deleteDirs: true,
@@ -191,7 +193,6 @@ pipeline {
                 notFailBuild: true
             )
 
-            echo 'Workspace cleanup completed.'
             echo 'Application pipeline execution finished.'
         }
     }
