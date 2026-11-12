@@ -5,7 +5,7 @@ pipeline {
     options {
         timestamps()
         disableConcurrentBuilds()
-        timeout(time: 60, unit: 'MINUTES')
+        timeout(time: 120, unit: 'MINUTES')
     }
 
     stages {
@@ -77,10 +77,12 @@ pipeline {
 
         stage('Approve Deployment') {
             steps {
-                input(
-                    message: 'Deploy this revision to both Demand app servers?',
-                    ok: 'Deploy'
-                )
+                timeout(time: 30, unit: 'MINUTES') {
+                    input(
+                        message: 'Deploy this revision to both Demand application servers?',
+                        ok: 'Deploy'
+                    )
+                }
             }
         }
 
@@ -108,28 +110,64 @@ pipeline {
             }
         }
 
+        stage('Verify Application Health') {
+            steps {
+                sshagent(credentials: ['demand-app-ssh-key']) {
+                    sh '''
+                        set -eu
+
+                        SERVERS="10.20.133.231 10.20.143.220"
+
+                        for SERVER in $SERVERS; do
+                            echo "===================================="
+                            echo "Checking application on ${SERVER}"
+                            echo "===================================="
+
+                            RESPONSE=$(ssh \
+                                -o BatchMode=yes \
+                                -o ConnectTimeout=10 \
+                                -o StrictHostKeyChecking=accept-new \
+                                ubuntu@"${SERVER}" \
+                                'curl --fail --silent --show-error http://127.0.0.1:3000/health')
+
+                            echo "Health response: ${RESPONSE}"
+
+                            echo "$RESPONSE" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"' || {
+                                echo "ERROR: Application health check failed on ${SERVER}"
+                                exit 1
+                            }
+
+                            echo "Application is healthy on ${SERVER}."
+                        done
+
+                        echo "Both Demand application servers are healthy."
+                    '''
+                }
+            }
+        }
+
         stage('Trigger Infrastructure Pipeline') {
             steps {
-                echo 'Application deployment completed successfully.'
-                echo 'Triggering downstream infrastructure pipeline...'
+                echo 'Application deployment and health checks succeeded.'
+                echo 'Triggering the AMI-to-ASG infrastructure rollout.'
 
                 build(
                     job: 'rr-demo-infra-automation',
                     parameters: [
                         string(
                             name: 'ACTION',
-                            value: 'PREFLIGHT'
+                            value: 'FULL_ROLLOUT'
                         ),
                         booleanParam(
                             name: 'APPLY',
-                            value: false
+                            value: true
                         )
                     ],
                     wait: true,
                     propagate: true
                 )
 
-                echo 'Infrastructure preflight completed successfully.'
+                echo 'Infrastructure rollout completed successfully.'
             }
         }
     }
@@ -137,7 +175,7 @@ pipeline {
     post {
 
         success {
-            echo 'Application and downstream infrastructure preflight completed successfully.'
+            echo 'Application deployment and infrastructure rollout completed successfully.'
         }
 
         failure {
@@ -154,7 +192,7 @@ pipeline {
             )
 
             echo 'Workspace cleanup completed.'
-            echo 'Pipeline execution finished.'
+            echo 'Application pipeline execution finished.'
         }
     }
 }
