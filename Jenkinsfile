@@ -22,9 +22,16 @@ pipeline {
         REMOTE_USER    = 'ubuntu'
         APP_PATH       = '/var/www/rr-demo/current'
         HEALTH_URL     = 'http://127.0.0.1:3000/health'
+
+        // Downstream Jenkins job
+        INFRA_JOB      = 'rr-demo-infra-automation'
     }
 
     stages {
+
+        // --------------------------------------------------
+        // 1. CHECKOUT
+        // --------------------------------------------------
 
         stage('Checkout') {
             steps {
@@ -45,6 +52,10 @@ pipeline {
                 }
             }
         }
+
+        // --------------------------------------------------
+        // 2. VERIFY ENVIRONMENT
+        // --------------------------------------------------
 
         stage('Verify Environment') {
             steps {
@@ -67,6 +78,10 @@ pipeline {
             }
         }
 
+        // --------------------------------------------------
+        // 3. INSTALL DEPENDENCIES
+        // --------------------------------------------------
+
         stage('Install Dependencies') {
             steps {
                 sh '''
@@ -76,7 +91,8 @@ pipeline {
 
                     bundle config set deployment true
 
-                    # Ensure development and test groups are not excluded.
+                    # Keep development and test dependencies
+                    # available for CI execution.
                     bundle config unset without || true
 
                     bundle install
@@ -88,6 +104,10 @@ pipeline {
                 '''
             }
         }
+
+        // --------------------------------------------------
+        // 4. RUN RAILS TESTS
+        // --------------------------------------------------
 
         stage('Run Tests') {
             steps {
@@ -102,6 +122,10 @@ pipeline {
                 '''
             }
         }
+
+        // --------------------------------------------------
+        // 5. CAPISTRANO PREFLIGHT
+        // --------------------------------------------------
 
         stage('Capistrano Preflight') {
             steps {
@@ -158,6 +182,10 @@ pipeline {
             }
         }
 
+        // --------------------------------------------------
+        // 6. MANUAL DEPLOYMENT APPROVAL
+        // --------------------------------------------------
+
         stage('Approve Deployment') {
             steps {
                 timeout(time: 30, unit: 'MINUTES') {
@@ -174,8 +202,9 @@ Deployment target:
 Excluded:
 - Demand-a1: ${env.DEMAND_A1} (intentionally stopped)
 
-Infrastructure automation:
-- Disabled for this application deployment.
+Downstream automation:
+- ${env.INFRA_JOB}
+- Triggered after successful application deployment and verification.
 """,
                         ok: 'Approve Deployment',
                         submitter: 'admin'
@@ -183,6 +212,10 @@ Infrastructure automation:
                 }
             }
         }
+
+        // --------------------------------------------------
+        // 7. DEPLOY APPLICATION
+        // --------------------------------------------------
 
         stage('Deploy Application') {
             steps {
@@ -242,6 +275,10 @@ Infrastructure automation:
             }
         }
 
+        // --------------------------------------------------
+        // 8. APPLICATION HEALTH CHECK
+        // --------------------------------------------------
+
         stage('Health Check') {
             steps {
                 sshagent(credentials: ['demand-app-ssh-key']) {
@@ -270,6 +307,10 @@ Infrastructure automation:
             }
         }
 
+        // --------------------------------------------------
+        // 9. VERIFY DEPLOYED REVISION
+        // --------------------------------------------------
+
         stage('Verify Deployed Revision') {
             steps {
                 sshagent(credentials: ['demand-app-ssh-key']) {
@@ -291,7 +332,7 @@ Infrastructure automation:
                         echo "Deployed commit: ${DEPLOYED_COMMIT}"
 
                         if [ "${DEPLOYED_COMMIT}" != "${APP_COMMIT}" ]; then
-                            echo "ERROR: Deployed revision does not match the requested revision."
+                            echo "ERROR: Deployed revision does not match."
                             exit 1
                         fi
 
@@ -301,33 +342,57 @@ Infrastructure automation:
             }
         }
 
+        // --------------------------------------------------
+        // 10. TRIGGER DOWNSTREAM INFRASTRUCTURE AUTOMATION
+        // --------------------------------------------------
+
         stage('Infrastructure Automation') {
             steps {
-                echo '''
-                Infrastructure automation is intentionally disabled
-                in this application deployment pipeline.
+                script {
+                    echo "=========================================="
+                    echo "Triggering downstream infrastructure job"
+                    echo "=========================================="
 
-                The separate rr-demo-infra-automation job handles:
-                - AMI creation
-                - Launch Template updates
-                - Auto Scaling Group automation
-                - Instance Refresh
-                '''
+                    echo "Downstream job: ${env.INFRA_JOB}"
+                    echo "Application: ${env.APP_NAME}"
+                    echo "Application commit: ${env.APP_COMMIT}"
+
+                    def downstreamBuild = build(
+                        job: env.INFRA_JOB,
+                        wait: true,
+                        propagate: true
+                    )
+
+                    echo "=========================================="
+                    echo "DOWNSTREAM JOB COMPLETED"
+                    echo "=========================================="
+
+                    echo "Job: ${env.INFRA_JOB}"
+                    echo "Build number: ${downstreamBuild.number}"
+                    echo "Build result: ${downstreamBuild.result}"
+                    echo "Build URL: ${downstreamBuild.absoluteUrl}"
+                }
             }
         }
     }
 
+    // ------------------------------------------------------
+    // POST BUILD ACTIONS
+    // ------------------------------------------------------
+
     post {
+
         success {
             echo """
             ==========================================
-            APPLICATION DEPLOYMENT SUCCESSFUL
+            APPLICATION + INFRASTRUCTURE PIPELINE SUCCESSFUL
             ==========================================
-            Application : ${env.APP_NAME}
-            Environment : ${env.DEPLOY_ENV}
-            Branch      : ${env.APP_BRANCH}
-            Commit      : ${env.APP_COMMIT}
-            Target      : ${env.DEMAND_A2}
+            Application       : ${env.APP_NAME}
+            Environment       : ${env.DEPLOY_ENV}
+            Branch            : ${env.APP_BRANCH}
+            Commit            : ${env.APP_COMMIT}
+            Deployment target : ${env.DEMAND_A2}
+            Downstream job    : ${env.INFRA_JOB}
             ==========================================
             """
         }
@@ -335,17 +400,19 @@ Infrastructure automation:
         failure {
             echo """
             ==========================================
-            APPLICATION DEPLOYMENT FAILED
+            PIPELINE FAILED
             ==========================================
-            Application : ${env.APP_NAME}
-            Commit      : ${env.APP_COMMIT}
-            Please review the failed stage and console logs.
+            Application    : ${env.APP_NAME}
+            Commit         : ${env.APP_COMMIT}
+            Downstream job : ${env.INFRA_JOB}
+
+            Check the failed stage and its console output.
             ==========================================
             """
         }
 
         aborted {
-            echo 'Application deployment was aborted.'
+            echo 'Application and infrastructure pipeline was aborted.'
         }
 
         always {
