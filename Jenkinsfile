@@ -75,9 +75,14 @@ pipeline {
                     echo "Installing application dependencies..."
 
                     bundle config set deployment true
-                    bundle config set without 'development test'
+
+                    # Ensure development and test groups are not excluded.
+                    bundle config unset without || true
 
                     bundle install
+
+                    echo "Verifying installed dependencies..."
+                    bundle check
 
                     echo "Dependencies installed successfully."
                 '''
@@ -93,7 +98,7 @@ pipeline {
 
                     RAILS_ENV=test bundle exec rails test
 
-                    echo "Rails test command completed."
+                    echo "Rails tests completed successfully."
                 '''
             }
         }
@@ -170,7 +175,7 @@ Excluded:
 - Demand-a1: ${env.DEMAND_A1} (intentionally stopped)
 
 Infrastructure automation:
-- Not triggered by this application deployment.
+- Disabled for this application deployment.
 """,
                         ok: 'Approve Deployment',
                         submitter: 'admin'
@@ -224,7 +229,9 @@ Infrastructure automation:
                             set -e
 
                             echo "Starting Capistrano deployment..."
+                            echo "Application: ${APP_NAME}"
                             echo "Commit: ${APP_COMMIT}"
+                            echo "Target: ${DEMAND_A2}"
 
                             bundle exec cap staging deploy
 
@@ -300,8 +307,11 @@ Infrastructure automation:
                 Infrastructure automation is intentionally disabled
                 in this application deployment pipeline.
 
-                The separate rr-demo-infra-automation job
-                handles AMI, Launch Template and ASG automation.
+                The separate rr-demo-infra-automation job handles:
+                - AMI creation
+                - Launch Template updates
+                - Auto Scaling Group automation
+                - Instance Refresh
                 '''
             }
         }
