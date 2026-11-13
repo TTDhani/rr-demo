@@ -10,58 +10,59 @@ pipeline {
     }
 
     environment {
-        APP_NAME = 'rr-demo'
-        APP_BRANCH = 'main'
+        APP_NAME       = 'rr-demo'
+        APP_BRANCH     = 'main'
+        DEPLOY_ENV     = 'staging'
 
-        // Demand-a1 is intentionally stopped to free EC2 vCPU quota.
-        // Do not include it in deployment or health checks.
-        DEMAND_A1 = '10.20.133.231'
+        // Deployment targets
+        DEMAND_A1      = '10.20.133.231'
+        DEMAND_A2      = '10.20.143.220'
 
-        // Only active deployment target for this POC.
-        DEMAND_A2 = '10.20.143.220'
-
-        DEPLOY_ENV = 'staging'
+        // Application configuration
+        REMOTE_USER    = 'ubuntu'
+        APP_PATH       = '/var/www/rr-demo/current'
+        HEALTH_URL     = 'http://127.0.0.1:3000/health'
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                echo '========================================'
-                echo 'CHECKING OUT APPLICATION SOURCE'
-                echo '========================================'
-
                 checkout scm
 
-                sh '''
-                    set -eu
+                script {
+                    env.APP_COMMIT = sh(
+                        script: 'git rev-parse HEAD',
+                        returnStdout: true
+                    ).trim()
 
-                    echo "Repository: rr-demo"
-                    echo "Branch: ${APP_BRANCH}"
-                    echo "Commit: $(git rev-parse HEAD)"
-                    echo "Short SHA: $(git rev-parse --short HEAD)"
-                '''
+                    env.APP_SHORT_COMMIT = env.APP_COMMIT.take(7)
+
+                    echo "Application: ${env.APP_NAME}"
+                    echo "Branch: ${env.APP_BRANCH}"
+                    echo "Commit: ${env.APP_COMMIT}"
+                    echo "Short commit: ${env.APP_SHORT_COMMIT}"
+                }
             }
         }
 
         stage('Verify Environment') {
             steps {
                 sh '''
-                    set -eu
+                    set -e
 
-                    echo "========================================"
-                    echo "VERIFYING JENKINS ENVIRONMENT"
-                    echo "========================================"
+                    echo "Checking build environment..."
+
+                    command -v ruby
+                    command -v bundle
+                    command -v git
+                    command -v ssh
 
                     ruby --version
                     bundle --version
                     git --version
 
-                    echo "Application: ${APP_NAME}"
-                    echo "Deployment environment: ${DEPLOY_ENV}"
-                    echo "Deployment target: ${DEMAND_A2}"
-
-                    echo "Demand-a1 ${DEMAND_A1} is intentionally excluded."
+                    echo "Environment verification completed."
                 '''
             }
         }
@@ -69,16 +70,16 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
-                    set -eu
+                    set -e
 
-                    echo "========================================"
-                    echo "INSTALLING RUBY DEPENDENCIES"
-                    echo "========================================"
+                    echo "Installing application dependencies..."
 
-                    bundle config set --local path vendor/bundle
+                    bundle config set deployment true
+                    bundle config set without 'development test'
+
                     bundle install
 
-                    echo "Bundle installation completed."
+                    echo "Dependencies installed successfully."
                 '''
             }
         }
@@ -86,75 +87,66 @@ pipeline {
         stage('Run Tests') {
             steps {
                 sh '''
-                    set -eu
+                    set -e
 
-                    echo "========================================"
-                    echo "RUNNING RAILS TESTS"
-                    echo "========================================"
+                    echo "Running Rails tests..."
 
-                    bundle exec rails test
+                    RAILS_ENV=test bundle exec rails test
 
-                    echo "Rails test command completed successfully."
+                    echo "Rails test command completed."
                 '''
             }
         }
 
         stage('Capistrano Preflight') {
             steps {
-                sshagent(credentials: ['demand-app-ssh-key']) {
-
-                    withCredentials([
-                        string(
-                            credentialsId: 'rr-demo-secret-key-base',
-                            variable: 'SECRET_KEY_BASE'
-                        ),
-                        string(
-                            credentialsId: 'rr-demo-db-host',
-                            variable: 'DB_HOST'
-                        ),
-                        string(
-                            credentialsId: 'rr-demo-db-name',
-                            variable: 'DB_NAME'
-                        ),
-                        string(
-                            credentialsId: 'rr-demo-db-username',
-                            variable: 'DB_USERNAME'
-                        ),
-                        string(
-                            credentialsId: 'rr-demo-db-password',
-                            variable: 'DB_PASSWORD'
-                        ),
-                        string(
-                            credentialsId: 'rr-demo-db-port',
-                            variable: 'DB_PORT'
-                        ),
-                        string(
-                            credentialsId: 'rr-demo-db-queue-name',
-                            variable: 'DB_QUEUE_NAME'
-                        ),
-                        string(
-                            credentialsId: 'rr-demo-db-cache-name',
-                            variable: 'DB_CACHE_NAME'
-                        ),
-                        string(
-                            credentialsId: 'rr-demo-db-cable-name',
-                            variable: 'DB_CABLE_NAME'
-                        )
-                    ]) {
-
+                withCredentials([
+                    string(
+                        credentialsId: 'rr-demo-secret-key-base',
+                        variable: 'SECRET_KEY_BASE'
+                    ),
+                    string(
+                        credentialsId: 'rr-demo-db-host',
+                        variable: 'DB_HOST'
+                    ),
+                    string(
+                        credentialsId: 'rr-demo-db-name',
+                        variable: 'DB_NAME'
+                    ),
+                    string(
+                        credentialsId: 'rr-demo-db-username',
+                        variable: 'DB_USERNAME'
+                    ),
+                    string(
+                        credentialsId: 'rr-demo-db-password',
+                        variable: 'DB_PASSWORD'
+                    ),
+                    string(
+                        credentialsId: 'rr-demo-db-port',
+                        variable: 'DB_PORT'
+                    ),
+                    string(
+                        credentialsId: 'rr-demo-db-queue-name',
+                        variable: 'DB_QUEUE_NAME'
+                    ),
+                    string(
+                        credentialsId: 'rr-demo-db-cache-name',
+                        variable: 'DB_CACHE_NAME'
+                    ),
+                    string(
+                        credentialsId: 'rr-demo-db-cable-name',
+                        variable: 'DB_CABLE_NAME'
+                    )
+                ]) {
+                    sshagent(credentials: ['demand-app-ssh-key']) {
                         sh '''
-                            set -eu
+                            set -e
 
-                            echo "========================================"
-                            echo "CAPISTRANO DEPLOYMENT PREFLIGHT"
-                            echo "========================================"
-
-                            echo "Checking deployment target: ${DEMAND_A2}"
-                            echo "Demand-a1 is excluded: ${DEMAND_A1}"
+                            echo "Running Capistrano deployment preflight..."
 
                             bundle exec cap staging deploy:check
 
-                            echo "Capistrano preflight completed successfully."
+                            echo "Capistrano preflight completed."
                         '''
                     }
                 }
@@ -164,19 +156,21 @@ pipeline {
         stage('Approve Deployment') {
             steps {
                 timeout(time: 30, unit: 'MINUTES') {
-
                     input(
                         message: """
-Deploy application revision ${GIT_COMMIT ?: 'from current checkout'}?
+Deploy application revision ${env.APP_SHORT_COMMIT}?
 
-Target:
-- Demand-a2: ${DEMAND_A2}
+Full revision:
+${env.APP_COMMIT}
+
+Deployment target:
+- Demand-a2: ${env.DEMAND_A2}
 
 Excluded:
-- Demand-a1: ${DEMAND_A1} (intentionally stopped)
+- Demand-a1: ${env.DEMAND_A1} (intentionally stopped)
 
 Infrastructure automation:
-- Disabled for this POC run.
+- Not triggered by this application deployment.
 """,
                         ok: 'Approve Deployment',
                         submitter: 'admin'
@@ -187,56 +181,50 @@ Infrastructure automation:
 
         stage('Deploy Application') {
             steps {
-                sshagent(credentials: ['demand-app-ssh-key']) {
-
-                    withCredentials([
-                        string(
-                            credentialsId: 'rr-demo-secret-key-base',
-                            variable: 'SECRET_KEY_BASE'
-                        ),
-                        string(
-                            credentialsId: 'rr-demo-db-host',
-                            variable: 'DB_HOST'
-                        ),
-                        string(
-                            credentialsId: 'rr-demo-db-name',
-                            variable: 'DB_NAME'
-                        ),
-                        string(
-                            credentialsId: 'rr-demo-db-username',
-                            variable: 'DB_USERNAME'
-                        ),
-                        string(
-                            credentialsId: 'rr-demo-db-password',
-                            variable: 'DB_PASSWORD'
-                        ),
-                        string(
-                            credentialsId: 'rr-demo-db-port',
-                            variable: 'DB_PORT'
-                        ),
-                        string(
-                            credentialsId: 'rr-demo-db-queue-name',
-                            variable: 'DB_QUEUE_NAME'
-                        ),
-                        string(
-                            credentialsId: 'rr-demo-db-cache-name',
-                            variable: 'DB_CACHE_NAME'
-                        ),
-                        string(
-                            credentialsId: 'rr-demo-db-cable-name',
-                            variable: 'DB_CABLE_NAME'
-                        )
-                    ]) {
-
+                withCredentials([
+                    string(
+                        credentialsId: 'rr-demo-secret-key-base',
+                        variable: 'SECRET_KEY_BASE'
+                    ),
+                    string(
+                        credentialsId: 'rr-demo-db-host',
+                        variable: 'DB_HOST'
+                    ),
+                    string(
+                        credentialsId: 'rr-demo-db-name',
+                        variable: 'DB_NAME'
+                    ),
+                    string(
+                        credentialsId: 'rr-demo-db-username',
+                        variable: 'DB_USERNAME'
+                    ),
+                    string(
+                        credentialsId: 'rr-demo-db-password',
+                        variable: 'DB_PASSWORD'
+                    ),
+                    string(
+                        credentialsId: 'rr-demo-db-port',
+                        variable: 'DB_PORT'
+                    ),
+                    string(
+                        credentialsId: 'rr-demo-db-queue-name',
+                        variable: 'DB_QUEUE_NAME'
+                    ),
+                    string(
+                        credentialsId: 'rr-demo-db-cache-name',
+                        variable: 'DB_CACHE_NAME'
+                    ),
+                    string(
+                        credentialsId: 'rr-demo-db-cable-name',
+                        variable: 'DB_CABLE_NAME'
+                    )
+                ]) {
+                    sshagent(credentials: ['demand-app-ssh-key']) {
                         sh '''
-                            set -eu
+                            set -e
 
-                            echo "========================================"
-                            echo "DEPLOYING RAILS APPLICATION"
-                            echo "========================================"
-
-                            echo "Target server: ${DEMAND_A2}"
-                            echo "Excluded server: ${DEMAND_A1}"
+                            echo "Starting Capistrano deployment..."
+                            echo "Commit: ${APP_COMMIT}"
 
                             bundle exec cap staging deploy
 
@@ -247,66 +235,60 @@ Infrastructure automation:
             }
         }
 
-        stage('Verify Application Health') {
+        stage('Health Check') {
             steps {
                 sshagent(credentials: ['demand-app-ssh-key']) {
-
                     sh '''
-                        set -eu
+                        set -e
 
-                        echo "========================================"
-                        echo "APPLICATION HEALTH VERIFICATION"
-                        echo "========================================"
+                        echo "Checking application on Demand-a2..."
 
-                        echo "Demand-a1 ${DEMAND_A1} is intentionally stopped."
-                        echo "Skipping Demand-a1."
-
-                        SERVER="${DEMAND_A2}"
-
-                        echo "Checking application on ${SERVER}"
-
-                        RESPONSE=$(ssh \
+                        ssh \
                             -o BatchMode=yes \
-                            -o ConnectTimeout=10 \
+                            -o ConnectTimeout=15 \
                             -o StrictHostKeyChecking=accept-new \
-                            ubuntu@${SERVER} \
-                            "curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/health")
+                            ${REMOTE_USER}@${DEMAND_A2} \
+                            "set -e
+                             echo 'Checking application health...'
+                             curl --fail --silent --show-error ${HEALTH_URL}
+                             echo
+                             echo 'Checking deployed revision...'
+                             cd ${APP_PATH}
+                             cat REVISION
+                            "
 
-                        echo "Health response: ${RESPONSE}"
+                        echo "Health check completed."
+                    '''
+                }
+            }
+        }
 
-                        if ! printf '%s' "$RESPONSE" | grep -q '"status":"ok"'; then
-                            echo "ERROR: Application health check failed."
+        stage('Verify Deployed Revision') {
+            steps {
+                sshagent(credentials: ['demand-app-ssh-key']) {
+                    sh '''
+                        set -e
+
+                        echo "Verifying deployed application revision..."
+
+                        DEPLOYED_COMMIT=$(
+                            ssh \
+                                -o BatchMode=yes \
+                                -o ConnectTimeout=15 \
+                                -o StrictHostKeyChecking=accept-new \
+                                ${REMOTE_USER}@${DEMAND_A2} \
+                                "cat ${APP_PATH}/REVISION"
+                        )
+
+                        echo "Expected commit: ${APP_COMMIT}"
+                        echo "Deployed commit: ${DEPLOYED_COMMIT}"
+
+                        if [ "${DEPLOYED_COMMIT}" != "${APP_COMMIT}" ]; then
+                            echo "ERROR: Deployed revision does not match the requested revision."
                             exit 1
                         fi
 
-                        echo "SUCCESS: Demand-a2 application is healthy."
-
-                        echo "========================================"
-                        echo "VERIFYING DEPLOYED REVISION"
-                        echo "========================================"
-
-                        DEPLOYED_REVISION=$(ssh \
-                            -o BatchMode=yes \
-                            -o ConnectTimeout=10 \
-                            -o StrictHostKeyChecking=accept-new \
-                            ubuntu@${SERVER} \
-                            "cat /var/www/rr-demo/current/REVISION")
-
-                        EXPECTED_REVISION=$(git rev-parse HEAD)
-
-                        echo "Expected revision: ${EXPECTED_REVISION}"
-                        echo "Deployed revision: ${DEPLOYED_REVISION}"
-
-                        if [ "$DEPLOYED_REVISION" != "$EXPECTED_REVISION" ]; then
-                            echo "ERROR: Deployed revision does not match Jenkins checkout."
-                            exit 1
-                        fi
-
-                        echo "SUCCESS: Deployed revision matches Jenkins checkout."
-
-                        echo "========================================"
-                        echo "APPLICATION VERIFICATION PASSED"
-                        echo "========================================"
+                        echo "Revision verification successful."
                     '''
                 }
             }
@@ -314,53 +296,42 @@ Infrastructure automation:
 
         stage('Infrastructure Automation') {
             steps {
-                echo '========================================'
-                echo 'INFRASTRUCTURE AUTOMATION DISABLED'
-                echo '========================================'
+                echo '''
+                Infrastructure automation is intentionally disabled
+                in this application deployment pipeline.
 
-                echo 'No infrastructure pipeline will be triggered.'
-                echo 'No AMI will be created.'
-                echo 'No Launch Template version will be created.'
-                echo 'No Auto Scaling Group update will be performed.'
-                echo 'No Instance Refresh will be started.'
-
-                echo 'Existing ASG refresh must be inspected separately.'
+                The separate rr-demo-infra-automation job
+                handles AMI, Launch Template and ASG automation.
+                '''
             }
         }
     }
 
     post {
-
         success {
-            echo '''
-========================================
-APPLICATION DEPLOYMENT SUCCESSFUL
-========================================
-
-Application: rr-demo
-Deployment target: Demand-a2
-Demand-a1: Intentionally stopped and skipped
-Application health: Verified
-Git revision: Verified
-
-Infrastructure automation: Disabled
-========================================
-'''
+            echo """
+            ==========================================
+            APPLICATION DEPLOYMENT SUCCESSFUL
+            ==========================================
+            Application : ${env.APP_NAME}
+            Environment : ${env.DEPLOY_ENV}
+            Branch      : ${env.APP_BRANCH}
+            Commit      : ${env.APP_COMMIT}
+            Target      : ${env.DEMAND_A2}
+            ==========================================
+            """
         }
 
         failure {
-            echo '''
-========================================
-APPLICATION DEPLOYMENT FAILED
-========================================
-
-Please inspect the failed Jenkins stage
-and review the console output.
-
-Demand-a1 remains excluded.
-Infrastructure automation was not triggered.
-========================================
-'''
+            echo """
+            ==========================================
+            APPLICATION DEPLOYMENT FAILED
+            ==========================================
+            Application : ${env.APP_NAME}
+            Commit      : ${env.APP_COMMIT}
+            Please review the failed stage and console logs.
+            ==========================================
+            """
         }
 
         aborted {
@@ -368,9 +339,8 @@ Infrastructure automation was not triggered.
         }
 
         always {
-            echo 'Cleaning application Jenkins workspace...'
+            echo 'Cleaning Jenkins workspace...'
             cleanWs()
-            echo 'Jenkins pipeline execution finished.'
         }
     }
 }
