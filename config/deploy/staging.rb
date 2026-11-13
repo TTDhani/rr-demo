@@ -1,77 +1,68 @@
-# server-based syntax
-# ======================
-# Defines a single server with a list of roles and multiple properties.
-# You can define all roles on a single server, or split them:
 
-# server "example.com", user: "deploy", roles: %w{app db web}, my_property: :my_value
-# server "example.com", user: "deploy", roles: %w{app web}, other_property: :other_value
-# server "db.example.com", user: "deploy", roles: %w{db}
+# config/deploy/staging.rb
+
+require "net/ssh"
+require "socket"
 
 set :stage, :staging
 set :rails_env, "production"
 
-server "10.20.133.231",
-  user: "ubuntu",
-  roles: %w[app web db],
-  primary: true
+ssh_key = File.expand_path("~/.ssh/demand.pem")
 
-server "10.20.143.220",
-  user: "ubuntu",
-  roles: %w[app web]
+unless File.file?(ssh_key)
+  raise "SSH private key not found: #{ssh_key}"
+end
 
 set :ssh_options, {
   auth_methods: %w[publickey],
-  keys: [File.expand_path("~/.ssh/demand.pem")],
-  forward_agent: false
+  keys: [ssh_key],
+  forward_agent: false,
+  non_interactive: true,
+  timeout: 5
 }
 
-# role-based syntax
-# ==================
+deployment_servers = [
+  "10.20.133.231",
+  "10.20.143.220"
+]
 
-# Defines a role with one or multiple servers. The primary server in each
-# group is considered to be the first unless any hosts have the primary
-# property set. Specify the username and a domain or IP for the server.
-# Don't use `:all`, it's a meta role.
+reachable_count = 0
 
-# role :app, %w{deploy@example.com}, my_property: :my_value
-# role :web, %w{user1@primary.com user2@additional.com}, other_property: :other_value
-# role :db,  %w{deploy@example.com}
+deployment_servers.each do |host|
+  puts "\nChecking SSH connectivity to #{host}..."
 
+  begin
+    Net::SSH.start(
+      host,
+      "ubuntu",
+      **fetch(:ssh_options).merge(timeout: 5)
+    ) do |ssh|
+      ssh.exec!("true")
+    end
 
+    reachable_count += 1
 
-# Configuration
-# =============
-# You can set any configuration variable like in config/deploy.rb
-# These variables are then only loaded and set in this stage.
-# For available Capistrano configuration variables see the documentation page.
-# http://capistranorb.com/documentation/getting-started/configuration/
-# Feel free to add new variables to customise your setup.
+    server host,
+      user: "ubuntu",
+      roles: %w[app web db],
+      primary: reachable_count == 1
 
+    puts "SUCCESS: #{host} is reachable and added to deployment."
 
+  rescue Net::SSH::ConnectionTimeout,
+         Errno::ECONNREFUSED,
+         Errno::ETIMEDOUT,
+         Errno::EHOSTUNREACH,
+         Errno::ENETUNREACH,
+         Errno::ECONNRESET,
+         SocketError => e
 
-# Custom SSH Options
-# ==================
-# You may pass any option but keep in mind that net/ssh understands a
-# limited set of options, consult the Net::SSH documentation.
-# http://net-ssh.github.io/net-ssh/classes/Net/SSH.html#method-c-start
-#
-# Global options
-# --------------
-#  set :ssh_options, {
-#    keys: %w(/home/user_name/.ssh/id_rsa),
-#    forward_agent: false,
-#    auth_methods: %w(password)
-#  }
-#
-# The server-based syntax can be used to override options:
-# ------------------------------------
-# server "example.com",
-#   user: "user_name",
-#   roles: %w{web app},
-#   ssh_options: {
-#     user: "user_name", # overrides user setting above
-#     keys: %w(/home/user_name/.ssh/id_rsa),
-#     forward_agent: false,
-#     auth_methods: %w(publickey password)
-#     # password: "please use keys"
-#   }
+    puts "WARNING: Skipping #{host} - SSH unavailable: #{e.class}: #{e.message}"
+  end
+end
+
+if reachable_count.zero?
+  raise "Deployment aborted: No reachable staging servers found."
+end
+
+puts "\n#{reachable_count} staging server(s) available for deployment."
