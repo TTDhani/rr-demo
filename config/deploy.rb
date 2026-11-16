@@ -5,15 +5,10 @@ set :application, "rr-demo"
 set :repo_url, "https://github.com/TTDhani/rr-demo.git"
 set :branch, "main"
 set :deploy_to, "/var/www/rr-demo"
+set :keep_releases, 5
 
 append :linked_dirs,
-  "log",
-  "tmp/pids",
-  "tmp/cache",
-  "tmp/sockets",
-  "storage"
-
-set :keep_releases, 5
+  "log", "tmp/pids", "tmp/cache", "tmp/sockets", "storage"
 
 set :default_env, {
   "RAILS_ENV" => "production",
@@ -32,9 +27,20 @@ namespace :deploy do
   task :restart_puma do
     on roles(:app) do
       execute :sudo, "-n", :systemctl, :restart, "rr-demo-puma.service"
-      execute :sudo, "-n", :systemctl, :"is-active", "--quiet", "rr-demo-puma.service"
-      execute :curl, "--fail", "--silent", "--show-error",
-              "--max-time", "15", "http://127.0.0.1:3000/health"
+
+      execute :bash, "-lc", %q{
+        for i in {1..12}; do
+          if curl -fsS --max-time 5 http://127.0.0.1:3000/health; then
+            echo "Puma is healthy."
+            exit 0
+          fi
+          echo "Waiting for Puma ($i/12)..."
+          sleep 5
+        done
+
+        echo "ERROR: Puma health check failed."
+        exit 1
+      }
     end
   end
 end
