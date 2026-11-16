@@ -47,6 +47,7 @@ pipeline {
 
                     echo "Application: ${env.APP_NAME}"
                     echo "Branch: ${env.APP_BRANCH}"
+                    echo "Application build: ${env.BUILD_NUMBER}"
                     echo "Commit: ${env.APP_COMMIT}"
                     echo "Short commit: ${env.APP_SHORT_COMMIT}"
                 }
@@ -195,6 +196,9 @@ Deploy application revision ${env.APP_SHORT_COMMIT}?
 
 Full revision:
 ${env.APP_COMMIT}
+
+Application build:
+${env.BUILD_NUMBER}
 
 Deployment target:
 - Demand-a2: ${env.DEMAND_A2}
@@ -355,10 +359,29 @@ Downstream automation:
 
                     echo "Downstream job: ${env.INFRA_JOB}"
                     echo "Application: ${env.APP_NAME}"
+                    echo "Application build: ${env.BUILD_NUMBER}"
                     echo "Application commit: ${env.APP_COMMIT}"
+
+                    if (!env.BUILD_NUMBER?.trim()) {
+                        error("Application Jenkins build number is missing.")
+                    }
+
+                    if (!env.APP_COMMIT?.trim()) {
+                        error("Application Git commit is missing.")
+                    }
 
                     def downstreamBuild = build(
                         job: env.INFRA_JOB,
+                        parameters: [
+                            string(
+                                name: 'APP_BUILD_NUMBER',
+                                value: env.BUILD_NUMBER
+                            ),
+                            string(
+                                name: 'APP_GIT_COMMIT',
+                                value: env.APP_COMMIT
+                            )
+                        ],
                         wait: true,
                         propagate: true
                     )
@@ -390,6 +413,7 @@ Downstream automation:
             Application       : ${env.APP_NAME}
             Environment       : ${env.DEPLOY_ENV}
             Branch            : ${env.APP_BRANCH}
+            Application build : ${env.BUILD_NUMBER}
             Commit            : ${env.APP_COMMIT}
             Deployment target : ${env.DEMAND_A2}
             Downstream job    : ${env.INFRA_JOB}
@@ -403,6 +427,7 @@ Downstream automation:
             PIPELINE FAILED
             ==========================================
             Application    : ${env.APP_NAME}
+            Application build: ${env.BUILD_NUMBER}
             Commit         : ${env.APP_COMMIT}
             Downstream job : ${env.INFRA_JOB}
 
